@@ -583,6 +583,16 @@ public:
     * @return the on_stop callback directive, the args is the url to callback.
     */
     virtual SrsConfDirective*   get_vhost_on_stop(std::string vhost);
+    /**
+    * get the on_error callbacks of vhost.
+    * @return the on_error callback directive, the args is the url to callback.
+    */
+	virtual SrsConfDirective*	get_vhost_on_error(std::string vhost);
+    /**
+    * get the on_user_defined_event callbacks of vhost.
+    * @return the on_user_defined_event callback directive, the args is the url to callback.
+    */
+	virtual SrsConfDirective*	get_vhost_on_user_defined_event(std::string vhost);
 // bwct(bandwidth check tool) section
 public:
     /**
