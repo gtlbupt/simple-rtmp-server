@@ -202,6 +202,10 @@ public:
     * @remark assert is_string(), user must ensure the type then convert.
     */
     virtual std::string to_str();
+	/**
+	 * alias of to_str();
+	 */
+	  virtual std::string to_string(){return to_str();};
     /**
     * get the raw str of instance,
     * user can directly set the content of str.
