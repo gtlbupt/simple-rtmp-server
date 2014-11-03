@@ -89,6 +89,14 @@ public:
     // @see https://github.com/winlinvip/simple-rtmp-server/issues/104
     SrsAmf0Object* args;
 public:
+	// SrsHttpHook on_error event
+	int error_code;
+	std::string error_msg;
+	// token for verify
+	std::string token;
+	// SrsHttpHook on_user_defined_event event
+	std::string extra_param;
+public:
     SrsRequest();
     virtual ~SrsRequest();
 public:
