@@ -92,31 +92,29 @@ public:
     */
     static int on_play(std::string url, int client_id, std::string ip, SrsRequest* req);
     /**
-    * on_stop hook, when client stop to play the stream.
-    * @param client_id the id of client on server.
-    * @param url the api server url, to process the event. 
-    *         ignore if empty.
-    */
+     * on_stop hook, when client stop to play the stream.
+     * @param client_id the id of client on server.
+     * @param url the api server url, to process the event. 
+     *         ignore if empty.
+     */
     static void on_stop(std::string url, int client_id, std::string ip, SrsRequest* req);
-
-	/**
-	 * on_error hook, when client error
-	 * @param client_id the id of client on the server
-	 * @param url the api server url, to process the event.
-	 *		ignore if empty.
-	 */
-	static void on_error(std::string url, int client_id, std::string ip, SrsRequest* req);
-
-	/**
-	 * on_user_defined_eventa hook, when client send user defined event.
-	 * @param client_id the id of client on the server
-	 * @param url the api server url, to provess the event.
-	 *				ignore if empty
-	 */
-	static void on_user_defined_event(std::string url, int client_id, std::string ip, SrsRequest* req);
+    /**
+     * on_error hook, when client error
+     * @param client_id the id of client on the server
+     * @param url the api server url, to process the event.
+     *		ignore if empty.
+     */
+    static void on_error(std::string url, int client_id, std::string ip, SrsRequest* req);
+    /**
+     * on_user_defined_eventa hook, when client send user defined event.
+     * @param client_id the id of client on the server
+     * @param url the api server url, to provess the event.
+     *				ignore if empty
+     */
+    static void on_user_defined_event(std::string url, int client_id, std::string ip, SrsRequest* req);
 };
 
 #endif
 
 #endif
-
+/* vim: set expandtab ts=4 sts=4 sw=4 : */
