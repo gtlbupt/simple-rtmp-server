@@ -492,6 +492,7 @@ int SrsRtmpConn::check_vhost()
     if ((ret = http_hooks_on_connect()) != ERROR_SUCCESS) {
         return ret;
     }
+
     
     return ret;
 }
@@ -1196,3 +1197,40 @@ void SrsRtmpConn::http_hooks_on_stop()
     return;
 }
 
+void SrsRtmpConn::http_hooks_on_error()
+{
+#ifdef SRS_AUTO_HTTP_CALLBACK
+	if (_srs_config->get_vhost_http_hooks_enabled(req->vhost)){
+		SrsConfDirective* on_error = _srs_config->get_vhost_on_error(req->vhost);	
+        if (!on_error) {
+            srs_info("ignore the empty http callback: on_error");
+            return;
+        }
+        int connection_id = _srs_context->get_id();
+        for (int i = 0; i < (int)on_error->args.size(); i++) {
+            std::string url = on_error->args.at(i);
+            SrsHttpHooks::on_error(url, connection_id, ip, req);
+        }
+	}
+#endif
+	return;
+}
+
+void SrsRtmpConn::http_hooks_on_user_defined_event()
+{
+#ifdef SRS_AUTO_HTTP_CALLBACK
+	if (_srs_config->get_vhost_http_hooks_enabled(req->vhost)){
+		SrsConfDirective* on_user_defined_event = _srs_config->get_vhost_on_user_defined_event(req->vhost);	
+        if (!on_user_defined_event) {
+            srs_info("ignore the empty http callback: on_user_defined_event");
+            return;
+        }
+        int connection_id = _srs_context->get_id();
+        for (int i = 0; i < (int)on_user_defined_event->args.size(); i++) {
+            std::string url = on_user_defined_event->args.at(i);
+            SrsHttpHooks::on_user_defined_event(url, connection_id, ip, req);
+        }
+	}
+#endif
+	return;
+}
