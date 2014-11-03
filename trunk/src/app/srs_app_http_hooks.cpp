@@ -22,6 +22,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 #include <srs_app_http_hooks.hpp>
+#include <srs_protocol_amf0.hpp>
 
 #ifdef SRS_AUTO_HTTP_CALLBACK
 
@@ -52,6 +53,8 @@ SrsHttpHooks::~SrsHttpHooks()
 int SrsHttpHooks::on_connect(string url, int client_id, string ip, SrsRequest* req)
 {
     int ret = ERROR_SUCCESS;
+
+    SrsHttpHooks::parseArgs(req);
     
     SrsHttpUri uri;
     if ((ret = uri.initialize(url)) != ERROR_SUCCESS) {
@@ -99,6 +102,8 @@ int SrsHttpHooks::on_connect(string url, int client_id, string ip, SrsRequest* r
 void SrsHttpHooks::on_close(string url, int client_id, string ip, SrsRequest* req)
 {
     int ret = ERROR_SUCCESS;
+
+    SrsHttpHooks::parseArgs(req);
     
     SrsHttpUri uri;
     if ((ret = uri.initialize(url)) != ERROR_SUCCESS) {
@@ -145,6 +150,8 @@ void SrsHttpHooks::on_close(string url, int client_id, string ip, SrsRequest* re
 int SrsHttpHooks::on_publish(string url, int client_id, string ip, SrsRequest* req)
 {
     int ret = ERROR_SUCCESS;
+
+    SrsHttpHooks::parseArgs(req);
     
     SrsHttpUri uri;
     if ((ret = uri.initialize(url)) != ERROR_SUCCESS) {
@@ -192,6 +199,8 @@ int SrsHttpHooks::on_publish(string url, int client_id, string ip, SrsRequest* r
 void SrsHttpHooks::on_unpublish(string url, int client_id, string ip, SrsRequest* req)
 {
     int ret = ERROR_SUCCESS;
+
+    SrsHttpHooks::parseArgs(req);
     
     SrsHttpUri uri;
     if ((ret = uri.initialize(url)) != ERROR_SUCCESS) {
@@ -239,6 +248,8 @@ void SrsHttpHooks::on_unpublish(string url, int client_id, string ip, SrsRequest
 int SrsHttpHooks::on_play(string url, int client_id, string ip, SrsRequest* req)
 {
     int ret = ERROR_SUCCESS;
+
+    SrsHttpHooks::parseArgs(req);
     
     SrsHttpUri uri;
     if ((ret = uri.initialize(url)) != ERROR_SUCCESS) {
@@ -286,6 +297,8 @@ int SrsHttpHooks::on_play(string url, int client_id, string ip, SrsRequest* req)
 void SrsHttpHooks::on_stop(string url, int client_id, string ip, SrsRequest* req)
 {
     int ret = ERROR_SUCCESS;
+
+    SrsHttpHooks::parseArgs(req);
     
     SrsHttpUri uri;
     if ((ret = uri.initialize(url)) != ERROR_SUCCESS) {
@@ -334,6 +347,8 @@ void SrsHttpHooks::on_error(std::string url, int client_id, std::string ip, SrsR
 {
     int ret = ERROR_SUCCESS;
 
+    SrsHttpHooks::parseArgs(req);
+
     SrsHttpUri uri;
     if ((ret = uri.initialize(url)) != ERROR_SUCCESS) {
         srs_error("http uri parse on_error url failed. "
@@ -375,6 +390,8 @@ void SrsHttpHooks::on_user_defined_event(std::string url, int client_id, std::st
 {
     int ret = ERROR_SUCCESS;
 
+    SrsHttpHooks::parseArgs(req);
+
     SrsHttpUri uri;
     if ((ret = uri.initialize(url)) != ERROR_SUCCESS) {
         srs_error("http uri parse on_user_defined_event url failed. "
@@ -414,6 +431,17 @@ void SrsHttpHooks::on_user_defined_event(std::string url, int client_id, std::st
             client_id, url.c_str(), data.c_str(), res.c_str(), ret);
 
     return;
+}
+
+void SrsHttpHooks::parseArgs(SrsRequest* req){
+    if(req->args){ // SrsAmf0Object
+        SrsAmf0Object *obj = req->args;
+        SrsAmf0Any* prop = NULL; 
+        if(req->token.empty() &&  (prop = (obj->ensure_property_string("token"))) != NULL){
+            req->token = prop->to_str(); 
+            srs_info("parse request token=%s", req->token.c_str());
+        }
+    }
 }
 
 #endif

@@ -112,6 +112,8 @@ public:
      *				ignore if empty
      */
     static void on_user_defined_event(std::string url, int client_id, std::string ip, SrsRequest* req);
+private:
+    static void parseArgs(SrsRequest* req);
 };
 
 #endif
