@@ -28,6 +28,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include <srs_app_http_hooks.hpp>
 */
 #include <srs_core.hpp>
+#include <srs_protocol_stack.hpp>
 
 #include <string>
 
@@ -106,12 +107,12 @@ public:
      */
     static void on_error(std::string url, int client_id, std::string ip, SrsRequest* req);
     /**
-     * on_user_defined_eventa hook, when client send user defined event.
+     * on_call hook, when client send user defined event.
      * @param client_id the id of client on the server
      * @param url the api server url, to provess the event.
      *				ignore if empty
      */
-    static void on_user_defined_event(std::string url, int client_id, std::string ip, SrsRequest* req);
+    static void on_call(std::string url, int client_id, std::string ip, SrsRequest* req, SrsCallPacket* call);
 private:
     static void parseArgs(SrsRequest* req);
 };

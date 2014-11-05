@@ -386,7 +386,7 @@ void SrsHttpHooks::on_error(std::string url, int client_id, std::string ip, SrsR
     return;
 }
 
-void SrsHttpHooks::on_user_defined_event(std::string url, int client_id, std::string ip, SrsRequest* req)
+void SrsHttpHooks::on_call(std::string url, int client_id, std::string ip, SrsRequest* req, SrsCallPacket* call)
 {
     int ret = ERROR_SUCCESS;
 
@@ -394,19 +394,24 @@ void SrsHttpHooks::on_user_defined_event(std::string url, int client_id, std::st
 
     SrsHttpUri uri;
     if ((ret = uri.initialize(url)) != ERROR_SUCCESS) {
-        srs_error("http uri parse on_user_defined_event url failed. "
+        srs_error("http uri parse on_call url failed. "
                 "client_id=%d, url=%s, ret=%d", client_id, url.c_str(), ret);	
         return;
     }
 
     std::stringstream ss;
+    std::string command_object = call->command_object ? call->command_object->to_json() : "";
+    std::string arguments = call->arguments ? call->arguments->to_json() : "";
     ss << __SRS_JOBJECT_START
-        << __SRS_JFIELD_STR("action", "on_user_defined_event")  << __SRS_JFIELD_CONT
+        << __SRS_JFIELD_STR("action", "on_call")  << __SRS_JFIELD_CONT
         << __SRS_JFIELD_ORG("client_id", client_id)             << __SRS_JFIELD_CONT
         << __SRS_JFIELD_STR("ip", ip)                           << __SRS_JFIELD_CONT
         << __SRS_JFIELD_STR("app", req->app)                    << __SRS_JFIELD_CONT
         << __SRS_JFIELD_STR("token", req->token)                << __SRS_JFIELD_CONT
-        << __SRS_JFIELD_STR("extra_param", req->extra_param)
+        << __SRS_JFIELD_STR("command_name", call->command_name) << __SRS_JFIELD_CONT
+        << __SRS_JFIELD_STR("command_object", command_object )  << __SRS_JFIELD_CONT
+        << __SRS_JFIELD_STR("optioanl_arguments", arguments )   << __SRS_JFIELD_CONT
+        << __SRS_JFIELD_STR("extra_param",  req->extra_param)
         << __SRS_JOBJECT_END;
     std::string data = ss.str();
     std::string res;
@@ -426,7 +431,7 @@ void SrsHttpHooks::on_user_defined_event(std::string url, int client_id, std::st
         return;
     }
 
-    srs_trace("http hook on_user_defined_event success. "
+    srs_trace("http hook on_call success. "
             "client_id=%d, url=%s, request=%s, response=%s, ret=%d",
             client_id, url.c_str(), data.c_str(), res.c_str(), ret);
 
