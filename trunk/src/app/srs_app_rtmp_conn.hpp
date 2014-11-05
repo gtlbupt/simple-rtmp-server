@@ -33,6 +33,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include <srs_app_st.hpp>
 #include <srs_app_conn.hpp>
 #include <srs_app_reload.hpp>
+#include <srs_protocol_stack.hpp>
 
 class SrsRtmpServer;
 class SrsRequest;
@@ -106,7 +107,7 @@ private:
     virtual int http_hooks_on_play();
     virtual void http_hooks_on_stop();
 	virtual void http_hooks_on_error();
-	virtual void http_hooks_on_user_defined_event();
+	virtual void http_hooks_on_call(SrsCallPacket *call);
 };
 
 #endif

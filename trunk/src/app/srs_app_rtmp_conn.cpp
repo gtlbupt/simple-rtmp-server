@@ -145,7 +145,7 @@ int SrsRtmpConn::do_cycle()
         return ret;
     }
     
-    // check vhost
+    // check vhost, http_hooks_on_connect
     if ((ret = check_vhost()) != ERROR_SUCCESS) {
         srs_error("check vhost failed. ret=%d", ret);
         return ret;
@@ -809,6 +809,26 @@ int SrsRtmpConn::do_flash_publishing(SrsSource* source)
             }
             
             SrsAutoFree(SrsPacket, pkt);
+
+
+			// call msg,
+			// support response null first,
+			// @see https://github.com/winlinvip/simple-rtmp-server/issues/106
+			// TODO: FIXME: response in right way, or forward in edge mode.
+			SrsCallPacket* call = dynamic_cast<SrsCallPacket*>(pkt);
+			srs_info("process_flash_publish_message process call .");
+			if (call) {
+				srs_info("process_publish_message process call .");
+				http_hooks_on_call(call);
+				SrsCallResPacket* res = new SrsCallResPacket(call->transaction_id);
+				res->command_object = SrsAmf0Any::null();
+				res->response = SrsAmf0Any::null();
+				if ((ret = rtmp->send_and_free_packet(res, 0)) != ERROR_SUCCESS) {
+					srs_warn("response call failed. ret=%d", ret);
+					return ret;
+				}
+				continue;
+			}
             
             // flash unpublish.
             // TODO: maybe need to support republish.
@@ -883,6 +903,25 @@ int SrsRtmpConn::process_publish_message(SrsSource* source, SrsMessage* msg, boo
             srs_info("process onMetaData message success.");
             return ret;
         }
+
+		// call msg,
+		// support response null first,
+		// @see https://github.com/winlinvip/simple-rtmp-server/issues/106
+		// TODO: FIXME: response in right way, or forward in edge mode.
+		SrsCallPacket* call = dynamic_cast<SrsCallPacket*>(pkt);
+		srs_info("process_publish_message process call .");
+		if (call) {
+			srs_info("process_publish_message process call .");
+			http_hooks_on_call(call);
+			SrsCallResPacket* res = new SrsCallResPacket(call->transaction_id);
+			res->command_object = SrsAmf0Any::null();
+			res->response = SrsAmf0Any::null();
+			if ((ret = rtmp->send_and_free_packet(res, 0)) != ERROR_SUCCESS) {
+				srs_warn("response call failed. ret=%d", ret);
+				return ret;
+			}
+			return ret;
+		}
         
         srs_info("ignore AMF0/AMF3 data message.");
         return ret;
@@ -930,6 +969,7 @@ int SrsRtmpConn::process_play_control_msg(SrsConsumer* consumer, SrsMessage* msg
     // TODO: FIXME: response in right way, or forward in edge mode.
     SrsCallPacket* call = dynamic_cast<SrsCallPacket*>(pkt);
     if (call) {
+		http_hooks_on_call(call);
         SrsCallResPacket* res = new SrsCallResPacket(call->transaction_id);
         res->command_object = SrsAmf0Any::null();
         res->response = SrsAmf0Any::null();
@@ -1216,19 +1256,19 @@ void SrsRtmpConn::http_hooks_on_error()
 	return;
 }
 
-void SrsRtmpConn::http_hooks_on_user_defined_event()
+void SrsRtmpConn::http_hooks_on_call(SrsCallPacket* call)
 {
 #ifdef SRS_AUTO_HTTP_CALLBACK
 	if (_srs_config->get_vhost_http_hooks_enabled(req->vhost)){
-		SrsConfDirective* on_user_defined_event = _srs_config->get_vhost_on_user_defined_event(req->vhost);	
-        if (!on_user_defined_event) {
-            srs_info("ignore the empty http callback: on_user_defined_event");
+		SrsConfDirective* on_call = _srs_config->get_vhost_on_call(req->vhost);
+        if (!on_call) {
+            srs_info("ignore the empty http callback: on_call");
             return;
         }
         int connection_id = _srs_context->get_id();
-        for (int i = 0; i < (int)on_user_defined_event->args.size(); i++) {
-            std::string url = on_user_defined_event->args.at(i);
-            SrsHttpHooks::on_user_defined_event(url, connection_id, ip, req);
+        for (int i = 0; i < (int)on_call->args.size(); i++) {
+            std::string url = on_call->args.at(i);
+            SrsHttpHooks::on_call(url, connection_id, ip, req, call);
         }
 	}
 #endif
