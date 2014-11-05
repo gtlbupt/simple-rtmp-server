@@ -409,8 +409,8 @@ void SrsHttpHooks::on_call(std::string url, int client_id, std::string ip, SrsRe
         << __SRS_JFIELD_STR("app", req->app)                    << __SRS_JFIELD_CONT
         << __SRS_JFIELD_STR("token", req->token)                << __SRS_JFIELD_CONT
         << __SRS_JFIELD_STR("command_name", call->command_name) << __SRS_JFIELD_CONT
-        << __SRS_JFIELD_STR("command_object", command_object )  << __SRS_JFIELD_CONT
-        << __SRS_JFIELD_STR("optioanl_arguments", arguments )   << __SRS_JFIELD_CONT
+        << __SRS_JFIELD_NAME("command_object") << command_object<< __SRS_JFIELD_CONT
+        << __SRS_JFIELD_NAME("optioanl_arguments") << arguments << __SRS_JFIELD_CONT
         << __SRS_JFIELD_STR("extra_param",  req->extra_param)
         << __SRS_JOBJECT_END;
     std::string data = ss.str();
