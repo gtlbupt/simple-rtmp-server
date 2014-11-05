@@ -79,7 +79,7 @@ std::string SrsAmf0Any::boolean_to_json(bool val){
 }
 std::string SrsAmf0Any::string_to_json(const std::string & str){
     // to-do espace \ "
-	return str;
+	return '"' + str + '"';
 }
 std::string SrsAmf0Any::object_to_json(SrsAmf0Object *obj){
     std::stringstream ss;
