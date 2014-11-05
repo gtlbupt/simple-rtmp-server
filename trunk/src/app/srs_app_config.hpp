@@ -589,10 +589,10 @@ public:
     */
 	virtual SrsConfDirective*	get_vhost_on_error(std::string vhost);
     /**
-    * get the on_user_defined_event callbacks of vhost.
-    * @return the on_user_defined_event callback directive, the args is the url to callback.
+    * get the on_call callbacks of vhost.
+    * @return the on_call callback directive, the args is the url to callback.
     */
-	virtual SrsConfDirective*	get_vhost_on_user_defined_event(std::string vhost);
+	virtual SrsConfDirective*	get_vhost_on_call(std::string vhost);
 // bwct(bandwidth check tool) section
 public:
     /**
