@@ -195,6 +195,19 @@ public:
     * whether current instance is an AMF0 object, object-EOF, ecma-array or strict-array.
     */
     virtual bool is_complex_object();
+public:
+	/**
+	 * convert to JSON
+	 */
+	virtual std::string to_json();
+	static std::string number_to_json(double val);
+	static std::string boolean_to_json(bool  val);
+	static std::string string_to_json(const std::string &str);
+	static std::string object_to_json(SrsAmf0Object* obj);
+	static std::string null_to_json();
+	static std::string undefined_to_json();
+	static std::string ecmaarray_to_json(SrsAmf0EcmaArray* obj);
+	static std::string strictarray_to_json(SrsAmf0StrictArray *obj);
 // get value of instance
 public:
     /**

@@ -69,6 +69,98 @@ SrsAmf0Any::~SrsAmf0Any()
 {
 }
 
+std::string SrsAmf0Any::number_to_json(double val){
+	std::stringstream ss;
+	ss << val;
+	return ss.str();
+}
+std::string SrsAmf0Any::boolean_to_json(bool val){
+	return val ? "true" : "false";
+}
+std::string SrsAmf0Any::string_to_json(const std::string & str){
+    // to-do espace \ "
+	return str;
+}
+std::string SrsAmf0Any::object_to_json(SrsAmf0Object *obj){
+    std::stringstream ss;
+    ss << "{";
+    for(int i = 0; i < obj->count(); i++){
+        std::string key = obj->key_at(i);
+        SrsAmf0Any* val = obj->value_at(i);
+        ss << string_to_json(key) << ":" << val->to_json() ;
+        if ((i+1) != obj->count()){
+            ss << "," ;
+        }
+    }
+    ss << "}";
+    return ss.str();
+}
+std::string SrsAmf0Any::null_to_json(){
+	return "null";
+}
+std::string SrsAmf0Any::undefined_to_json(){
+	return "undefined";
+}
+std::string SrsAmf0Any::ecmaarray_to_json(SrsAmf0EcmaArray *obj){
+    std::stringstream ss;
+    ss << "[";
+    for(int i = 0; i < obj->count(); i++){
+        std::string key = obj->key_at(i);
+        SrsAmf0Any* val = obj->value_at(i);
+        ss << string_to_json(key) << ":" << val->to_json() ;
+        if ((i+1) != obj->count()){
+            ss << ",";
+        }
+    }
+    ss << "]";
+    return ss.str();
+}
+std::string SrsAmf0Any::strictarray_to_json(SrsAmf0StrictArray* obj){
+    std::stringstream ss;
+    ss << "[";
+    for(int i = 0; i < obj->count(); i++){
+        SrsAmf0Any* val = obj->at(i);
+        ss << val->to_json() ;
+        if ((i+1) != obj->count()){
+            ss << ",";
+        }
+    }
+    ss << "]";
+    return ss.str();
+}
+
+std::string SrsAmf0Any::to_json(){
+	switch(marker){
+		case RTMP_AMF0_Number:
+			return number_to_json(to_number());
+		break;
+		case RTMP_AMF0_Boolean:
+			return boolean_to_json(to_boolean());
+			break;
+		case RTMP_AMF0_String:
+			return string_to_json(to_str());
+			break;
+		case RTMP_AMF0_Object:
+			return object_to_json(to_object());
+			break;
+		case RTMP_AMF0_Null:
+			return null_to_json();
+			break;
+		case RTMP_AMF0_Undefined:
+			return undefined_to_json();
+			break;
+		case RTMP_AMF0_EcmaArray:
+			return ecmaarray_to_json(to_ecma_array());
+			break;
+        case RTMP_AMF0_StrictArray:
+            return strictarray_to_json(to_strict_array());
+            break;
+		default:
+			return "";
+			break;
+	}
+}
+
 bool SrsAmf0Any::is_string()
 {
     return marker == RTMP_AMF0_String;
@@ -1891,4 +1983,4 @@ namespace _srs_internal
         return value->write(stream);
     }
 }
-
+/* vim: set expandtab ts=4 sws=4 sts=4 : */
