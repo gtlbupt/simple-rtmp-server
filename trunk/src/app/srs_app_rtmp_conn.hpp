@@ -131,31 +131,31 @@ public:
     virtual int64_t get_send_bytes_delta();
     virtual int64_t get_recv_bytes_delta();
 private:
-	virtual int on_set_chunk_size(SrsMessage* );
-	virtual int on_abort_message(SrsMessage* );
-	virtual int on_acknowledgement(SrsMessage* );
-	virtual int on_user_control_messages(SrsMessage* );
-	virtual int on_window_acknowledgement_size(SrsMessage* );
-	virtual int on_set_peer_bandwidth(SrsMessage* );
-	virtual int on_audio_message(SrsMessage* );
-	virtual int on_video_message(SrsMessage* );
-	virtual int on_amf3_command_message(SrsMessage* );
-	virtual int on_amf3_data_message(SrsMessage* );
-	virtual int on_amf3_shared_object(SrsMessage* );
-	virtual int on_amf0_command_message(SrsMessage* );
-	virtual int on_amf0_data_message(SrsMessage* );
-	virtual int on_amf0_shared_object(SrsMessage* );
-	virtual int on_aggregate_message(SrsMessage* );
+    virtual int on_set_chunk_size(SrsMessage* );
+    virtual int on_abort_message(SrsMessage* );
+    virtual int on_acknowledgement(SrsMessage* );
+    virtual int on_user_control_messages(SrsMessage* );
+    virtual int on_window_acknowledgement_size(SrsMessage* );
+    virtual int on_set_peer_bandwidth(SrsMessage* );
+    virtual int on_audio_message(SrsMessage* );
+    virtual int on_video_message(SrsMessage* );
+    virtual int on_amf3_command_message(SrsMessage* );
+    virtual int on_amf3_data_message(SrsMessage* );
+    virtual int on_amf3_shared_object(SrsMessage* );
+    virtual int on_amf0_command_message(SrsMessage* );
+    virtual int on_amf0_data_message(SrsMessage* );
+    virtual int on_amf0_shared_object(SrsMessage* );
+    virtual int on_aggregate_message(SrsMessage* );
 public:
-	void set_netstream(SrsNetStream* stream) { streams[stream->get_stream_id()] = stream; }
-	SrsNetStream* get_netstream(double stream_id) { return (streams.find(stream_id) == streams.end()) ? NULL : streams[stream_id];}
+    void set_netstream(SrsNetStream* stream) { streams[stream->get_stream_id()] = stream; }
+    SrsNetStream* get_netstream(double stream_id) { return (streams.find(stream_id) == streams.end()) ? NULL : streams[stream_id];}
     void erase_netstream(double stream_id) { streams.erase(stream_id); }
 private:
     // when valid and connected to vhost/app, service the client.
     virtual int service_cycle();
     // stream(play/publish) service cycle, identify client first.
     virtual int stream_service_cycle();
-	virtual int message_loop();
+    virtual int message_loop();
     virtual int check_vhost();
     virtual int playing(SrsSource* source);
     virtual int fmle_publishing(SrsSource* source);
