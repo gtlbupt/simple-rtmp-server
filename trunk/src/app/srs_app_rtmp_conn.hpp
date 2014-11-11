@@ -57,11 +57,12 @@ class SrsNetStream;
 
 class SrsNetStream{
 public:
-	SrsNetStream(int _stream_id): stream_id(_stream_id), source(NULL), consumer(NULL), type(DEFAULT){};
-	virtual ~SrsNetStream(){ source = NULL; }
+	SrsNetStream(SrsRtmpConn* _conn,int _stream_id);
+	virtual ~SrsNetStream();
 
 	int get_stream_id() const { return stream_id;}
 	void set_stream_id(int _stream_id) { stream_id = _stream_id; }
+
 	std::string get_name() const{ return stream_name; }
 	void set_name(std::string &_name) { stream_name = _name;};
 
@@ -74,18 +75,25 @@ public:
 	void set_type_player() { type = PLAYER;}
 	bool is_player() const { return type == PLAYER; }
 
+	SrsConsumer* get_consumer() const { return consumer;};
+	void set_consumer(SrsConsumer* _consumer) { consumer = _consumer;}
+
+    /**
 	srs::shared_ptr<SrsConsumer> get_consumer() const { return consumer;};
 	void set_consumer(srs::shared_ptr<SrsConsumer> _consumer) { consumer = _consumer;}
+    **/
 private:
 	enum Type {
 		DEFAULT,
 		PUBLISHER,
 		PLAYER
 	};
+    SrsRtmpConn *conn;
 	int	stream_id;
 	std::string stream_name;
 	SrsSource* source;
-	srs::shared_ptr<SrsConsumer> consumer;
+	//srs::shared_ptr<SrsConsumer> consumer;
+	SrsConsumer* consumer;
 	Type type;
 };
 
@@ -138,9 +146,10 @@ private:
 	virtual int on_amf0_data_message(SrsMessage* );
 	virtual int on_amf0_shared_object(SrsMessage* );
 	virtual int on_aggregate_message(SrsMessage* );
-private:
+public:
 	void set_netstream(SrsNetStream* stream) { streams[stream->get_stream_id()] = stream; }
-	SrsNetStream* get_netstream(int stream_id) { return (streams.find(stream_id) == streams.end()) ? NULL : streams[stream_id];}
+	SrsNetStream* get_netstream(double stream_id) { return (streams.find(stream_id) == streams.end()) ? NULL : streams[stream_id];}
+    void erase_netstream(double stream_id) { streams.erase(stream_id); }
 private:
     // when valid and connected to vhost/app, service the client.
     virtual int service_cycle();
