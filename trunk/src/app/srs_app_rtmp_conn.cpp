@@ -72,6 +72,60 @@ using namespace std;
 // to get msgs then totally send out.
 #define SYS_MAX_PLAY_SEND_MSGS 128
 
+
+/**
+ * the signature for packets to client.
+ */
+#define RTMP_SIG_FMS_VER "3,5,3,888"
+#define RTMP_SIG_AMF0_VER 0
+#define RTMP_SIG_CLIENT_ID "ASAICiss"
+/**
+ * onStatus consts.
+ */
+#define StatusLevel "level"
+#define StatusCode "code"
+#define StatusDescription "description"
+#define StatusDetails "details"
+#define StatusClientId "clientid"
+// status value
+#define StatusLevelStatus "status"
+// status error
+#define StatusLevelError "error"
+// code value
+#define StatusCodeConnectSuccess "NetConnection.Connect.Success"
+#define StatusCodeConnectRejected "NetConnection.Connect.Rejected"
+#define StatusCodeStreamReset "NetStream.Play.Reset"
+#define StatusCodeStreamStart "NetStream.Play.Start"
+#define StatusCodeStreamPause "NetStream.Pause.Notify"
+#define StatusCodeStreamUnpause "NetStream.Unpause.Notify"
+#define StatusCodePublishStart "NetStream.Publish.Start"
+#define StatusCodeDataStart "NetStream.Data.Start"
+#define StatusCodeUnpublishSuccess "NetStream.Unpublish.Success"
+// FMLE
+#define RTMP_AMF0_COMMAND_ON_FC_PUBLISH "onFCPublish"
+#define RTMP_AMF0_COMMAND_ON_FC_UNPUBLISH "onFCUnpublish"
+
+// AMF0
+#define RTMP_MSG_SetChunkSize					0x01
+#define RTMP_MSG_AbortMessage					0x02
+#define RTMP_MSG_Acknowledgement				0x03
+#define RTMP_MSG_UserControlMessage				0x04
+#define RTMP_MSG_WindowAcknowledgementSize		0x05
+#define RTMP_MSG_SetPeerBandwidth				0x06
+#define	RTMP_MSG_EdgeAndOriginServerCommand		0x07
+#define RTMP_MSG_AudioMessage					0x08
+#define RTMP_MSG_VideoMessage					0x09
+
+#define RTMP_MSG_AMF3DataMessage				0x0f
+#define RTMP_MSG_AMF3SharedObject				0x10
+#define	RTMP_MSG_AMF3CommandMessage				0x11
+
+#define RTMP_MSG_AMF0DataMessage				0x12
+#define RTMP_MSG_AMF0SharedObject				0x13
+#define	RTMP_MSG_AMF0CommandMessage				0x14
+
+#define RTMP_MSG_AggregateMessage				0x16
+
 SrsRtmpConn::SrsRtmpConn(SrsServer* srs_server, st_netfd_t client_stfd)
     : SrsConnection(srs_server, client_stfd)
 {
@@ -84,6 +138,7 @@ SrsRtmpConn::SrsRtmpConn(SrsServer* srs_server, st_netfd_t client_stfd)
     duration = 0;
     kbps = new SrsKbps();
     kbps->set_io(skt, skt);
+	next_stream_id = 1;
     
     _srs_config->subscribe(this);
 }
@@ -187,7 +242,8 @@ int SrsRtmpConn::do_cycle()
         }
     }
     
-    ret = service_cycle();
+    // ret = service_cycle();
+	ret = message_loop();
     http_hooks_on_close();
     
     return ret;
@@ -299,6 +355,555 @@ int SrsRtmpConn::service_cycle()
     }
 }
 
+int SrsRtmpConn::on_set_chunk_size(SrsMessage* msg)
+{
+	int ret = ERROR_SUCCESS;
+	return ret;
+}
+int SrsRtmpConn::on_abort_message(SrsMessage* msg)
+{
+	int ret = ERROR_SUCCESS;
+	srs_info("recv abort_message");
+	return ret;
+}
+int SrsRtmpConn::on_acknowledgement(SrsMessage* msg)
+{
+	int ret = ERROR_SUCCESS;
+	srs_info("recv acknowledgement");
+	return ret;
+}
+int SrsRtmpConn::on_user_control_messages(SrsMessage* msg)
+{
+	int ret = ERROR_SUCCESS;
+	srs_trace("on_user_control_messages");
+	return ret;
+}
+int SrsRtmpConn::on_window_acknowledgement_size(SrsMessage* msg)
+{
+	int ret = ERROR_SUCCESS;
+	return ret;
+}
+int SrsRtmpConn::on_set_peer_bandwidth(SrsMessage* msg)
+{
+	int ret = ERROR_SUCCESS;
+	return ret;
+}
+int SrsRtmpConn::on_audio_message(SrsMessage* msg){
+	int ret = ERROR_SUCCESS;
+
+	int stream_id = msg->header.stream_id;
+	srs_trace("SrsRtmpConn on_audio_message. stream_id=%d", stream_id);
+	SrsNetStream *stream = this->get_netstream(stream_id);
+	srs_assert(stream != NULL);
+	req->stream = stream->get_name();
+	SrsSource* source = NULL;
+	if ((ret = SrsSource::find(req, &source)) != ERROR_SUCCESS){
+		srs_error("find source failed");
+		return ret;
+	};
+	srs_assert(source != NULL);
+
+    bool vhost_is_edge = _srs_config->get_vhost_is_edge(req->vhost);
+	if (vhost_is_edge){
+		if ((ret = source->on_edge_proxy_publish(msg)) != ERROR_SUCCESS){
+			srs_error("edge publish proxy msg failed. ret=%d", ret);
+			return ret;
+		}
+		return ret;
+	}
+
+	if ((ret = source->on_audio(msg)) != ERROR_SUCCESS){
+		srs_error("source process audio message failed. ret=%d", ret);
+		return ret;
+	}
+
+	return ret;
+}
+int SrsRtmpConn::on_video_message(SrsMessage* msg){
+	int ret = ERROR_SUCCESS;
+
+	int stream_id = msg->header.stream_id;
+	srs_trace("SrsRtmpConn on_video_message. stream_id=%d", stream_id);
+	SrsNetStream *stream = this->get_netstream(stream_id);
+	srs_assert(stream != NULL);
+	req->stream = stream->get_name();
+	SrsSource* source = NULL;
+	if ((ret = SrsSource::find(req, &source)) != ERROR_SUCCESS){
+		srs_error("SrsSource find source failed. ret=%d");
+		return ret;
+	}
+	srs_assert(source != NULL);
+
+    bool vhost_is_edge = _srs_config->get_vhost_is_edge(req->vhost);
+	if (vhost_is_edge){
+		if ((ret = source->on_edge_proxy_publish(msg)) != ERROR_SUCCESS){
+			srs_error("edge publish proxy msg failed. ret=%d", ret);
+			return ret;
+		}
+		return ret;
+	}
+
+	if ((ret = source->on_video(msg)) != ERROR_SUCCESS){
+		srs_error("source process video message failed. ret=%d", ret);
+		return ret;
+	}
+
+	return ret;
+}
+int SrsRtmpConn::on_amf3_command_message(SrsMessage* msg){
+	int ret = ERROR_SUCCESS;
+	return ret;
+}
+int SrsRtmpConn::on_amf3_data_message(SrsMessage* msg){
+	int ret = ERROR_SUCCESS;
+	return ret;
+}
+int SrsRtmpConn::on_amf3_shared_object(SrsMessage* msg){
+	int ret = ERROR_SUCCESS;
+	return ret;
+}
+int SrsRtmpConn::on_amf0_command_message(SrsMessage* msg){
+	int ret = ERROR_SUCCESS;
+
+	int stream_id = msg->header.stream_id;
+	SrsPacket* pkt = NULL;
+	if ((ret = rtmp->decode_message(msg, &pkt)) != ERROR_SUCCESS){
+		srs_error("on_amf0_command_message decode message failed. ret=%d", ret);
+		return ret;
+	}
+
+	SrsAutoFree(SrsPacket, pkt);
+	if (dynamic_cast<SrsCreateStreamPacket*>(pkt))
+	{
+		srs_trace("SrsRtmpConn SrsCreateStreamPacket, stream_id=%d", msg->header.stream_id);
+		SrsCreateStreamPacket* req = dynamic_cast<SrsCreateStreamPacket*>(pkt);
+		int stream_id = next_stream_id++;
+		SrsCreateStreamResPacket* res = new SrsCreateStreamResPacket(req->transaction_id, stream_id);
+		if ((ret = rtmp->send_and_free_packet(res, 0)) != ERROR_SUCCESS){
+			srs_error("send createStream response message failed. ret=%d");
+			return ret;
+		}
+		SrsNetStream *stream = new SrsNetStream(stream_id);
+		this->set_netstream(stream);
+		return ret;
+	} 
+   	else if(dynamic_cast<SrsPublishPacket*>(pkt))
+	{	// flash publish
+		srs_trace("SrsRtmpConn SrsPublishPacket, stream_id=%d", msg->header.stream_id);
+		SrsPublishPacket* reqPacket = dynamic_cast<SrsPublishPacket*>(pkt);
+
+		if (true) {
+			SrsOnStatusCallPacket* res = new SrsOnStatusCallPacket();
+			res->data->set(StatusLevel, SrsAmf0Any::str(StatusLevelStatus));
+			res->data->set(StatusCode,  SrsAmf0Any::str(StatusCodePublishStart));
+			if ((ret = rtmp->send_and_free_packet(res, stream_id)) != ERROR_SUCCESS){
+				srs_error("send  onStatus(NetStream.Publish.Start) message failed. ret=%d", ret);
+				return ret;
+			}
+			srs_info("send onStatus(NetStream.Publish.Start) message success.");
+		}
+
+		SrsNetStream *stream = this->get_netstream(stream_id);
+		srs_assert(stream != NULL);
+		stream->set_type_publisher();
+		req->stream = stream->get_name();
+		SrsSource* source = NULL;
+		if((ret = SrsSource::find(req, &source)) != ERROR_SUCCESS){
+			srs_error("");
+			return ret;
+		}
+		srs_assert(source != NULL);
+		stream->set_source(source);
+
+		srs_info("flash start to publish stream %s success", stream->get_name().c_str());
+
+		bool vhost_is_edge = _srs_config->get_vhost_is_edge(req->vhost);
+
+		if (vhost_is_edge){
+			if ((ret = source->on_edge_start_publish()) != ERROR_SUCCESS){
+				srs_error("notice edge start publish stream failed. ret=%d", ret);
+				return ret;
+			}
+		}
+		if (!vhost_is_edge){
+			if ((ret = source->acquire_publish()) != ERROR_SUCCESS){
+				srs_error("dynamic_cast source acquire publish failed. ret=%d", ret);
+				return ret;
+			}
+		}
+
+		if ((ret = http_hooks_on_publish()) != ERROR_SUCCESS){
+			srs_error("http hook on_publish failed. ret=%d", ret);
+			return ret;
+		}
+
+		// when edge, ignore the publish event, directly proxy it.
+		if (!vhost_is_edge) {
+			if ((ret = source->on_publish()) != ERROR_SUCCESS){
+				srs_error("hls on_publish failed. ret=%d", ret);
+				return ret;
+			}
+		}
+	}
+	else if(dynamic_cast<SrsPlayPacket*>(pkt))
+	{
+		srs_trace("SrsRtmpConn SrsPlayPacket, stream_id=%d", msg->header.stream_id);
+		int stream_id = msg->header.stream_id;
+		SrsPlayPacket* reqPacket = dynamic_cast<SrsPlayPacket*>(pkt);
+
+		std::string stream_name = reqPacket->stream_name;
+		srs_trace("start to play stream %s.", stream_name.c_str());
+
+		SrsNetStream *stream = get_netstream(stream_id);
+		srs_assert(stream != NULL);
+		stream->set_type_player();
+		req->stream = stream->get_name();
+		SrsSource* source = NULL;
+		if ((ret = SrsSource::find(req, &source)) != ERROR_SUCCESS){
+			return ret;
+		}
+		srs_assert(source != NULL);
+
+		bool vhost_is_edge = _srs_config->get_vhost_is_edge(req->vhost);
+
+		if (vhost_is_edge) {
+			// notice edge to start for the first client
+			if ((ret = source->on_edge_start_play()) != ERROR_SUCCESS){
+				srs_error("start to play stream failed. ret=%d", ret);
+				return ret;
+			}
+		}
+
+		// response connection start play
+		if ((ret = rtmp->start_play(stream_id)) != ERROR_SUCCESS){
+			srs_error("start to play stream failed. ret=%d", ret);
+			return ret;
+		}
+
+		if ((ret = http_hooks_on_play()) != ERROR_SUCCESS){
+			srs_error("http hook on_play failed. ret = %d", ret);
+			return ret;
+		}
+
+		if ((ret = refer->check(req->pageUrl, _srs_config->get_refer_play(req->vhost))) != ERROR_SUCCESS){
+			srs_error("check play_refer failed. ret=%d", ret);
+			return ret;
+		}
+		srs_verbose("check play_refer success");
+
+		srs::shared_ptr<SrsConsumer> consumer;
+		if ((ret = source->create_consumer(consumer)) != ERROR_SUCCESS){
+			srs_error("create consumer failed. ret=%d", ret);
+			return ret;
+		}
+		srs_assert(consumer != NULL);
+		stream->set_consumer(consumer);
+		srs_trace("start to play stream %s end.", stream_name.c_str());
+	}
+	else if (dynamic_cast<SrsPausePacket*>(pkt)){
+		srs_trace("SrsRtmpConn SrsPausePacket, stream_id=%d", msg->header.stream_id);
+		SrsPausePacket * pause = dynamic_cast<SrsPausePacket*>(pkt);
+		int stream_id = 1;
+		if ((ret = rtmp->on_play_client_pause(stream_id, pause->is_pause)) != ERROR_SUCCESS) {
+			srs_error("rtmp process play client pause failed. ret=%d", ret);
+			return ret;
+		}
+		SrsNetStream *stream = get_netstream(stream_id);
+		if (!stream) {
+			srs_warn("not found SrsNetStream. stream_id=%d", stream_id);
+			return ret;
+		}
+		srs::shared_ptr<SrsConsumer> consumer = stream->get_consumer();
+		if (consumer){
+			consumer->on_play_client_pause(pause->is_pause);
+		}
+		srs_info("process pause success, is_pause=%d, time=%d.", pause->is_pause, pause->time_ms);
+	}
+   	else if (dynamic_cast<SrsCallPacket*>(pkt))
+	{
+		srs_trace("SrsRtmpConn SrsCallPacket, stream_id=%d", msg->header.stream_id);
+	} 
+	else if (dynamic_cast<SrsFMLEStartPacket*>(pkt)) 
+	{
+		SrsFMLEStartPacket *req = dynamic_cast<SrsFMLEStartPacket*>(pkt);
+		if (req->command_name == "releaseStream"){
+			srs_trace("SrsRtmpConn SrsReleaseStreamPacket, stream_id=%d", msg->header.stream_id);
+			SrsFMLEStartResPacket* res = new SrsFMLEStartResPacket(req->transaction_id);
+			if ((ret = rtmp->send_and_free_packet(res, 0)) != ERROR_SUCCESS){
+				srs_error("send releaseStream response message failed. ret=%d", ret);
+				return ret;
+			}
+			srs_info("send releaseStream response message success.");
+		}
+		else if (req->command_name == "FCPublish"){
+			srs_trace("SrsRtmpConn SrsFCPublishPacket, stream_id=%d", msg->header.stream_id);
+			SrsFMLEStartResPacket* res = new SrsFMLEStartResPacket(req->transaction_id);
+			if ((ret = rtmp->send_and_free_packet(res, 0)) != ERROR_SUCCESS){
+				srs_error("send FCPublish response message failed. ret=%d", ret);
+				return ret;
+			}
+			srs_info("send FCPublish response message success.");
+		}
+		else {
+			srs_trace("unknown SrsFMLEStartPacket, command_name=%s, transaction_id=%d, stream_id=%llf", req->command_name.c_str(), req->transaction_id, msg->header.stream_id);
+		}
+	}
+	else if (dynamic_cast<SrsDeleteStreamPacket*>(pkt)){
+		srs_trace("SrsRtmpConn SrsDeleteStreamPacket, stream_id=%d", msg->header.stream_id);
+		SrsDeleteStreamPacket* deleteStream = dynamic_cast<SrsDeleteStreamPacket*>(pkt);
+		SrsNetStream *stream = get_netstream(deleteStream->stream_id);
+		if (!stream) {
+			srs_warn("not found SrsNetStream. stream_id=%d", deleteStream->stream_id);
+			return ret;
+		}
+		req->stream = stream->get_name();
+		SrsSource* source = NULL;
+		if ((ret = SrsSource::find(req, &source)) != ERROR_SUCCESS){
+			srs_warn("not found SrsSource. stream_id=%d", deleteStream->stream_id);
+			return ret;
+		}
+		bool vhost_is_edge = _srs_config->get_vhost_is_edge(req->vhost);
+
+		if (stream->is_publisher()){
+			if (vhost_is_edge) {
+				source->on_edge_proxy_unpublish();
+			} else {
+				source->on_unpublish();
+			}
+			http_hooks_on_unpublish();
+
+			if (!vhost_is_edge){
+				source->release_publish();
+			}
+		} else if (stream->is_player()) {
+			http_hooks_on_stop();
+		}
+
+		return ret;
+	}
+	return ret;
+}
+int SrsRtmpConn::on_amf0_data_message(SrsMessage* msg){
+	int ret = ERROR_SUCCESS;
+
+	int stream_id = msg->header.stream_id;
+	srs_trace("SrsRtmpConn on_amf0_data_message. stream_id=%d", stream_id);
+	SrsNetStream *stream = this->get_netstream(stream_id);
+	srs_assert(stream != NULL);
+	req->stream = stream->get_name();
+	SrsSource* source = NULL;
+	if ((ret = SrsSource::find(req, &source)) != ERROR_SUCCESS){
+		srs_error("SrsSource::find source failed. ret = %d", ret);
+		return ret;
+	}
+	srs_assert(source != NULL);
+
+    bool vhost_is_edge = _srs_config->get_vhost_is_edge(req->vhost);
+	if (vhost_is_edge){
+		if ((ret = source->on_edge_proxy_publish(msg)) != ERROR_SUCCESS){
+			srs_error("edge publish proxy msg failed. ret=%d", ret);	
+			return ret;
+		}
+		return ret;
+	}
+
+	if (msg->header.is_amf0_data() || msg->header.is_amf3_data()){
+		SrsPacket* pkt = NULL;
+		if ((ret = rtmp->decode_message(msg, &pkt)) != ERROR_SUCCESS){
+			srs_error("decode onMetaData message failed. ret=%d", ret);	
+			return ret;
+		}
+		SrsAutoFree(SrsPacket, pkt);
+
+		if (dynamic_cast<SrsOnMetaDataPacket*>(pkt)){
+			SrsOnMetaDataPacket* metadata = dynamic_cast<SrsOnMetaDataPacket*>(pkt);
+			if ((ret = source->on_meta_data(msg, metadata)) != ERROR_SUCCESS){
+				srs_error("source process onMetaData message failed. ret=%d", ret);			
+				return ret;
+			}
+			srs_info("process onMetaData message success.");
+			return ret;
+		}
+	}
+	return ret;
+}
+int SrsRtmpConn::on_amf0_shared_object(SrsMessage* msg){
+	int ret = ERROR_SUCCESS;
+	return ret;
+}
+int SrsRtmpConn::on_aggregate_message(SrsMessage* msg){
+	int ret = ERROR_SUCCESS;
+
+	int stream_id = msg->header.stream_id;
+	SrsNetStream *stream = this->get_netstream(stream_id);
+	srs_assert(stream != NULL);
+	req->stream = stream->get_name();
+	SrsSource* source = NULL;
+	if ((ret = SrsSource::find(req, &source)) != ERROR_SUCCESS){
+		srs_error("SrsSource::find source failed. ret=%d", ret);
+		return ret;
+	};
+	srs_assert(source != NULL);
+
+    bool vhost_is_edge = _srs_config->get_vhost_is_edge(req->vhost);
+	if (vhost_is_edge){
+		if ((ret = source->on_edge_proxy_publish(msg)) != ERROR_SUCCESS){
+			srs_error("edge publish proxy msg failed. ret=%d", ret);	
+			return ret;
+		}
+		return ret;
+	}
+
+	if ((ret = source->on_aggregate(msg)) != ERROR_SUCCESS){
+		srs_error("source process aggregate message failed. ret=%d", ret);
+		return ret;
+	}
+
+	return ret;
+}
+
+// replace 
+int SrsRtmpConn::message_loop(void)
+{
+	int ret = ERROR_SUCCESS;
+
+	if ((ret = rtmp->set_window_ack_size((int)2.5*1000*1000)) != ERROR_SUCCESS){
+		srs_error("set window acknowledge size failed. ret=%d", ret);
+		return ret;
+	}
+	srs_verbose("set window acknowledgement size success");
+
+	if ((ret = rtmp->set_peer_bandwidth((int)2.5*1000*1000, 2)) != ERROR_SUCCESS){
+		srs_error("set peer bandwidth failed. ret=%d", ret);
+		return ret;
+	}
+	srs_verbose("set peer bandwidth success");
+
+	// get the ip which client connected.
+	std::string local_ip = srs_get_local_ip(st_netfd_fileno(stfd));
+
+	// do bandwidth test if connect to the vhost which is for bandwidth check.
+	if (_srs_config->get_bw_check_enabled(req->vhost)){
+		return bandwidth->bandwidth_check(rtmp, skt, req, local_ip);
+	}
+
+	if ((ret = rtmp->response_connect_app(req, local_ip.c_str())) != ERROR_SUCCESS){
+		srs_error("response connect app failed. ret=%d", ret);
+		return ret;
+	}
+	srs_verbose("response connect to app success");
+
+	if ((ret = rtmp->on_bw_done()) != ERROR_SUCCESS){
+		srs_error("on_bw_done failed. ret=%d", ret);
+		return ret;
+	}
+
+	int chunk_size = _srs_config->get_chunk_size(req->vhost);
+	if ((ret = rtmp->set_chunk_size(chunk_size)) != ERROR_SUCCESS){
+		srs_error("set chunk_size=%d failed. ret=%d", chunk_size, ret);
+		return ret;
+	}
+	srs_info("set chunk_size=%d success", chunk_size);
+
+	rtmp->set_recv_timeout(SRS_CONSTS_RTMP_PULSE_TIMEOUT_US);
+
+	while (true) {
+		SrsMessage* msg = NULL;
+		ret = rtmp->recv_message(&msg);
+
+		if (ret != ERROR_SUCCESS && ret != ERROR_SOCKET_TIMEOUT){
+			if (!srs_is_client_gracefully_close(ret)) {
+				srs_error("recv identify client message failed.	ret = %d", ret);
+			}
+			return ret;
+		}
+		if (true) {
+			for(std::map<double, SrsNetStream*>::iterator it = streams.begin(); it != streams.end(); it++){
+				srs::shared_ptr<SrsConsumer> consumer = it->second->get_consumer();
+				if (consumer){
+					SrsSharedPtrMessageArray msgs(SYS_MAX_PLAY_SEND_MSGS);
+					int count = 0;
+					if ((ret = consumer->dump_packets(msgs.size, msgs.msgs, count)) != ERROR_SUCCESS){
+						srs_error("get messages from consumer failed. ret=%d", ret);
+						return ret;
+					}
+					for (int i = 0; i < count; i++){
+						SrsSharedPtrMessage* msg = msgs.msgs[i];
+						msgs.msgs[i] = NULL;
+						if ((ret = rtmp->send_and_free_message(msg, it->second->get_stream_id())) != ERROR_SUCCESS){
+							srs_error("send message to client failed. ret = %d", ret);
+							return ret;
+						}
+					}
+				}
+			}
+		}
+
+		if (ret == ERROR_SOCKET_TIMEOUT || !msg){
+			srs_trace("socket timeout");
+			ret = ERROR_SUCCESS;
+			continue;
+		}
+		srs_assert(ret == ERROR_SUCCESS);
+
+		
+		SrsAutoFree(SrsMessage, msg);
+		SrsMessageHeader& h = msg->header;
+		switch(h.message_type){
+			case RTMP_MSG_SetChunkSize:
+				on_set_chunk_size(msg);
+				break;
+			case RTMP_MSG_AbortMessage:
+				on_abort_message(msg);
+				break;
+			case RTMP_MSG_Acknowledgement:
+				on_acknowledgement(msg);
+				break;
+			case RTMP_MSG_UserControlMessage:
+				on_user_control_messages(msg);
+				break;
+			case RTMP_MSG_WindowAcknowledgementSize:
+				on_window_acknowledgement_size(msg);
+				break;
+			case RTMP_MSG_SetPeerBandwidth:
+				on_set_peer_bandwidth(msg);
+				break;
+			case RTMP_MSG_EdgeAndOriginServerCommand:
+				break;
+			case RTMP_MSG_AudioMessage:
+				on_audio_message(msg);
+				break;
+			case RTMP_MSG_VideoMessage:
+				on_video_message(msg);
+				break;
+			case RTMP_MSG_AMF3CommandMessage:
+				on_amf3_command_message(msg);
+				break;
+			case RTMP_MSG_AMF3DataMessage:
+				on_amf3_data_message(msg);
+				break;
+			case RTMP_MSG_AMF3SharedObject:
+				on_amf3_shared_object(msg);
+				break;
+			case RTMP_MSG_AMF0CommandMessage:
+				on_amf0_command_message(msg);
+				break;
+			case RTMP_MSG_AMF0DataMessage:
+				on_amf0_data_message(msg);
+				break;
+			case RTMP_MSG_AMF0SharedObject:
+				on_amf0_shared_object(msg);
+				break;
+			case RTMP_MSG_AggregateMessage:
+				on_aggregate_message(msg);
+				break;
+			default:
+				break;
+		}
+	}
+	return ret;
+}
+
 int SrsRtmpConn::stream_service_cycle()
 {
     int ret = ERROR_SUCCESS;
@@ -339,6 +944,7 @@ int SrsRtmpConn::stream_service_cycle()
     // find a source to serve.
     SrsSource* source = NULL;
     if ((ret = SrsSource::find(req, &source)) != ERROR_SUCCESS) {
+		srs_error("SrsSource::find source failed. ret=%d", ret);
         return ret;
     }
     srs_assert(source != NULL);
