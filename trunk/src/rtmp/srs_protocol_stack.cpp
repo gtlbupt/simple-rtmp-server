@@ -193,6 +193,7 @@ messages.
 #define RTMP_AMF0_COMMAND_RESULT                "_result"
 #define RTMP_AMF0_COMMAND_ERROR                 "_error"
 #define RTMP_AMF0_COMMAND_RELEASE_STREAM        "releaseStream"
+#define RTMP_AMF0_COMMAND_DELETE_STREAM         "deleteStream"
 #define RTMP_AMF0_COMMAND_FC_PUBLISH            "FCPublish"
 #define RTMP_AMF0_COMMAND_UNPUBLISH             "FCUnpublish"
 #define RTMP_AMF0_COMMAND_PUBLISH               "publish"
@@ -769,6 +770,10 @@ int SrsProtocol::do_decode_message(SrsMessageHeader& header, SrsStream* stream, 
             srs_info("decode the AMF0/AMF3 command(FMLE FCPublish message).");
             *ppacket = packet = new SrsFMLEStartPacket();
             return packet->decode(stream);
+		// } else if(command == RTMP_AMF0_COMMAND_FC_UNPUBLISH){
+        //  srs_info("decode the AMF0/AMF3 command(FMLE FCUnpublish message).");
+        //   *ppacket = packet = new SrsFCUnpublishPacket();
+        //   return packet->decode(stream);
         } else if(command == RTMP_AMF0_COMMAND_PUBLISH) {
             srs_info("decode the AMF0/AMF3 command(publish message).");
             *ppacket = packet = new SrsPublishPacket();
@@ -800,6 +805,10 @@ int SrsProtocol::do_decode_message(SrsMessageHeader& header, SrsStream* stream, 
         } else if (command == RTMP_AMF0_COMMAND_CLOSE_STREAM) {
             srs_info("decode the AMF0/AMF3 closeStream message.");
             *ppacket = packet = new SrsCloseStreamPacket();
+            return packet->decode(stream);
+		} else if (command == RTMP_AMF0_COMMAND_DELETE_STREAM) {
+            srs_info("decode the AMF0/AMF3 deleteStream message.");
+            *ppacket = packet = new SrsDeleteStreamPacket();
             return packet->decode(stream);
         } else if (header.is_amf0_command() || header.is_amf3_command()) {
             srs_info("decode the AMF0/AMF3 call message.");
@@ -3906,4 +3915,69 @@ int SrsUserControlPacket::encode_packet(SrsStream* stream)
     return ret;
 }
 
+SrsFCUnpublishPacket::SrsFCUnpublishPacket()
+	:command_object(NULL)
+{ }
 
+SrsFCUnpublishPacket::~SrsFCUnpublishPacket()
+{ }
+
+int SrsFCUnpublishPacket::decode(SrsStream* stream)
+{
+    int ret = ERROR_SUCCESS;
+
+    if ((ret = srs_amf0_read_string(stream, command_name)) != ERROR_SUCCESS) {
+        srs_error("amf0 decode FCUnpublish command_name failed. ret=%d", ret);
+        return ret;
+    }
+
+    if ((ret = srs_amf0_read_number(stream, transaction_id)) != ERROR_SUCCESS) {
+        srs_error("amf0 decode FCUnpublish transaction_id failed. ret=%d", ret);
+        return ret;
+    }
+
+    if ((ret = srs_amf0_read_null(stream)) != ERROR_SUCCESS) {
+        srs_error("amf0 decode FCUnpublish command_object failed. ret=%d", ret);
+        return ret;
+    }
+
+    if ((ret = srs_amf0_read_string(stream, stream_name)) != ERROR_SUCCESS) {
+        srs_error("amf0 decode FCUnpublish stream_id failed. ret=%d", ret);
+        return ret;
+    }
+    srs_info("amf0 decode FCUnpublish packet success");
+
+    return ret;
+}
+
+SrsDeleteStreamPacket::SrsDeleteStreamPacket(): transaction_id(0), command_object(NULL), stream_id(0)
+{ }
+SrsDeleteStreamPacket::~SrsDeleteStreamPacket()
+{ }
+int SrsDeleteStreamPacket::decode(SrsStream* stream)
+{
+    int ret = ERROR_SUCCESS;
+
+    if ((ret = srs_amf0_read_string(stream, command_name)) != ERROR_SUCCESS) {
+        srs_error("amf0 decode deleteStream command_name failed. ret=%d", ret);
+        return ret;
+    }
+
+    if ((ret = srs_amf0_read_number(stream, transaction_id)) != ERROR_SUCCESS) {
+        srs_error("amf0 decode deleteStream transaction_id failed. ret=%d", ret);
+        return ret;
+    }
+
+    if ((ret = srs_amf0_read_null(stream)) != ERROR_SUCCESS) {
+        srs_error("amf0 decode deleteStream command_object failed. ret=%d", ret);
+        return ret;
+    }
+
+    if ((ret = srs_amf0_read_number(stream, stream_id)) != ERROR_SUCCESS) {
+        srs_error("amf0 decode deleteStream stream_id failed. ret=%d", ret);
+        return ret;
+    }
+    srs_info("amf0 decode deleteStream packet success");
+
+    return ret;
+}

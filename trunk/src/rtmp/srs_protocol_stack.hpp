@@ -1573,5 +1573,32 @@ protected:
     virtual int encode_packet(SrsStream* stream);
 };
 
+class SrsFCUnpublishPacket: public SrsPacket{
+public:
+	std::string command_name;
+	double transaction_id;
+	SrsAmf0Any* command_object;
+	std::string stream_name;
+public:
+	SrsFCUnpublishPacket();
+	virtual ~SrsFCUnpublishPacket();
+public:
+	virtual int decode(SrsStream* stream);
+};
+
+class SrsDeleteStreamPacket: public SrsPacket{
+public:
+	std::string command_name;
+	double transaction_id;
+	SrsAmf0Any* command_object;
+	double stream_id;
+public:
+	SrsDeleteStreamPacket();
+	virtual ~SrsDeleteStreamPacket();
+public:
+	virtual int decode(SrsStream* stream);
+};
+
+
 #endif
 
