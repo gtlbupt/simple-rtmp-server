@@ -173,11 +173,11 @@ private:
     virtual void http_hooks_on_close();
     virtual int  http_hooks_on_publish();
     virtual void http_hooks_on_unpublish();
-	virtual int  http_hooks_on_play();
-	virtual void http_hooks_on_stop();
-	virtual void http_hooks_on_error();
-	virtual void http_hooks_on_call(SrsCallPacket *call);
+    virtual int  http_hooks_on_play();
+    virtual void http_hooks_on_stop();
+    virtual void http_hooks_on_error();
+    virtual void http_hooks_on_call(SrsCallPacket *call);
 };
 
 #endif
-/* vim: set ts=4 sts=4 sw=4 expandtab : */
+/* vim: set expandtab ts=4 sts=4 sw=4 : */
