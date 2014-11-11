@@ -37,6 +37,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include <srs_app_st.hpp>
 #include <srs_app_reload.hpp>
 
+#include <utility/shared_ptr/shared_ptr.hpp>
+#include <utility/shared_ptr/unique_ptr.hpp>
+
 class SrsPlayEdge;
 class SrsPublishEdge;
 class SrsSource;
@@ -154,6 +157,7 @@ private:
     bool paused;
     // when source id changed, notice all consumers
     bool should_update_source_id;
+	int	stream_id;
 public:
     SrsConsumer(SrsSource* _source);
     virtual ~SrsConsumer();
@@ -192,6 +196,8 @@ public:
     * when client send the pause message.
     */
     virtual int on_play_client_pause(bool is_pause);
+	virtual int get_stream_id() const { return stream_id;}
+	virtual void set_stream_id(int _stream_id) {  stream_id = _stream_id; }
 };
 
 /**
@@ -301,6 +307,8 @@ private:
     SrsRequest* _req;
     // to delivery stream to clients.
     std::vector<SrsConsumer*> consumers;
+    // to delivery stream to clients, shared_ptr version.
+    std::vector<srs::shared_ptr<SrsConsumer> > srs_consumers;
     // the time jitter algorithm for vhost.
     SrsRtmpJitterAlgorithm jitter_algorithm;
     // hls handler.
@@ -405,7 +413,9 @@ public:
 // consumer methods
 public:
     virtual int create_consumer(SrsConsumer*& consumer);
+    virtual int create_consumer(srs::shared_ptr<SrsConsumer> &consumer);
     virtual void on_consumer_destroy(SrsConsumer* consumer);
+    virtual void on_consumer_destroy(srs::shared_ptr<SrsConsumer> consumer);
     virtual void set_cache(bool enabled);
 // internal
 public:

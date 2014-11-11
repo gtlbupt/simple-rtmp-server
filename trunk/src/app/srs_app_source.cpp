@@ -567,6 +567,10 @@ SrsSource::~SrsSource()
     // for all consumers are auto free.
     consumers.clear();
 
+    // never free the consumers, 
+    // for all consumers are auto free.
+	srs_consumers.clear();
+
     if (true) {
         std::vector<SrsForwarder*>::iterator it;
         for (it = forwarders.begin(); it != forwarders.end(); ++it) {
@@ -678,6 +682,14 @@ int SrsSource::on_reload_vhost_queue_length(string vhost)
             SrsConsumer* consumer = *it;
             consumer->set_queue_size(queue_size);
         }
+
+		if (true) {
+			std::vector<srs::shared_ptr<SrsConsumer> >::iterator it;
+			for (it = srs_consumers.begin(); it != srs_consumers.end(); ++it){
+				srs::shared_ptr<SrsConsumer> consumer = *it;	
+				consumer->set_queue_size(queue_size);
+			}
+		}
 
         srs_trace("consumers reload queue size success.");
     }
@@ -906,6 +918,14 @@ int SrsSource::on_source_id_changed(int id)
         SrsConsumer* consumer = *it;
         consumer->update_source_id();
     }
+
+	if (true) {
+		std::vector<srs::shared_ptr<SrsConsumer> >::iterator it;
+		for (it = srs_consumers.begin(); it != srs_consumers.end(); ++it){
+			srs::shared_ptr<SrsConsumer> consumer = *it;
+			consumer->update_source_id();
+		}
+	}
     
     return ret;
 }
@@ -1022,6 +1042,19 @@ int SrsSource::on_meta_data(SrsMessage* msg, SrsOnMetaDataPacket* metadata)
                 return ret;
             }
         }
+
+		if (true) {
+			std::vector<srs::shared_ptr<SrsConsumer> >::iterator it;
+			for (it = srs_consumers.begin(); it != srs_consumers.end(); ++it) {
+				srs::shared_ptr<SrsConsumer> consumer = *it;
+				SrsSharedPtrMessage* copy = cache_metadata->copy();
+				if ((ret = consumer->enqueue(copy, atc, sample_rate, frame_rate, jitter_algorithm)) != ERROR_SUCCESS) {
+					srs_error("dispatch the metadata failed. ret=%d", ret);
+					return ret;
+				}
+			}
+		}
+
         srs_trace("got metadata%s", ss.str().c_str());
     }
     
@@ -1087,6 +1120,16 @@ int SrsSource::on_audio(SrsMessage* __audio)
                 return ret;
             }
         }
+
+        for (int i = 0; i < (int)srs_consumers.size(); i++) {
+			srs::shared_ptr<SrsConsumer> consumer = srs_consumers.at(i);
+            SrsSharedPtrMessage* copy = msg.copy();
+            if ((ret = consumer->enqueue(copy, atc, sample_rate, frame_rate, jitter_algorithm)) != ERROR_SUCCESS) {
+                srs_error("dispatch the audio failed. ret=%d", ret);
+                return ret;
+            }
+        }
+
         srs_info("dispatch audio success.");
     }
     
@@ -1190,6 +1233,15 @@ int SrsSource::on_video(SrsMessage* __video)
     if (true) {
         for (int i = 0; i < (int)consumers.size(); i++) {
             SrsConsumer* consumer = consumers.at(i);
+            SrsSharedPtrMessage* copy = msg.copy();
+            if ((ret = consumer->enqueue(copy, atc, sample_rate, frame_rate, jitter_algorithm)) != ERROR_SUCCESS) {
+                srs_error("dispatch the video failed. ret=%d", ret);
+                return ret;
+            }
+        }
+
+        for (int i = 0; i < (int)srs_consumers.size(); i++) {
+			srs::shared_ptr<SrsConsumer> consumer = srs_consumers.at(i);
             SrsSharedPtrMessage* copy = msg.copy();
             if ((ret = consumer->enqueue(copy, atc, sample_rate, frame_rate, jitter_algorithm)) != ERROR_SUCCESS) {
                 srs_error("dispatch the video failed. ret=%d", ret);
@@ -1506,6 +1558,63 @@ void SrsSource::on_unpublish()
     
     return ret;
 }
+ int SrsSource::create_consumer(srs::shared_ptr<SrsConsumer> &srs_consumer)
+{
+    int ret = ERROR_SUCCESS;
+    
+	srs::shared_ptr<SrsConsumer> consumer(new SrsConsumer(this));
+	srs_consumer = consumer;
+    srs_consumers.push_back(consumer);
+    
+    double queue_size = _srs_config->get_queue_length(_req->vhost);
+    consumer->set_queue_size(queue_size);
+    
+    // if atc, update the sequence header to gop cache time.
+    if (atc && !gop_cache->empty()) {
+        if (cache_metadata) {
+            cache_metadata->header.timestamp = gop_cache->start_time();
+        }
+        if (cache_sh_video) {
+            cache_sh_video->header.timestamp = gop_cache->start_time();
+        }
+        if (cache_sh_audio) {
+            cache_sh_audio->header.timestamp = gop_cache->start_time();
+        }
+    }
+
+    int tba = sample_rate;
+    int tbv = frame_rate;
+    SrsRtmpJitterAlgorithm ag = jitter_algorithm;
+    
+    // copy metadata.
+    if (cache_metadata && (ret = consumer->enqueue(cache_metadata->copy(), atc, tba, tbv, ag)) != ERROR_SUCCESS) {
+        srs_error("dispatch metadata failed. ret=%d", ret);
+        return ret;
+    }
+    srs_info("dispatch metadata success");
+    
+    // copy sequence header
+    if (cache_sh_video && (ret = consumer->enqueue(cache_sh_video->copy(), atc, tba, tbv, ag)) != ERROR_SUCCESS) {
+        srs_error("dispatch video sequence header failed. ret=%d", ret);
+        return ret;
+    }
+    srs_info("dispatch video sequence header success");
+    
+    if (cache_sh_audio && (ret = consumer->enqueue(cache_sh_audio->copy(), atc, tba, tbv, ag)) != ERROR_SUCCESS) {
+        srs_error("dispatch audio sequence header failed. ret=%d", ret);
+        return ret;
+    }
+    srs_info("dispatch audio sequence header success");
+    
+    // copy gop cache to client.
+    if ((ret = gop_cache->dump(consumer.get(), atc, tba, tbv, ag)) != ERROR_SUCCESS) {
+        return ret;
+    }
+    
+    srs_trace("create consumer, queue_size=%.2f, tba=%d, tbv=%d", queue_size, sample_rate, frame_rate);
+    
+    return ret;
+}
 
 void SrsSource::on_consumer_destroy(SrsConsumer* consumer)
 {
@@ -1517,6 +1626,19 @@ void SrsSource::on_consumer_destroy(SrsConsumer* consumer)
     srs_info("handle consumer destroy success.");
     
     if (consumers.empty()) {
+        play_edge->on_all_client_stop();
+    }
+}
+void SrsSource::on_consumer_destroy(srs::shared_ptr<SrsConsumer> consumer)
+{
+    std::vector<srs::shared_ptr<SrsConsumer> >::iterator it;
+    it = std::find(srs_consumers.begin(), srs_consumers.end(), consumer);
+    if (it != srs_consumers.end()) {
+        srs_consumers.erase(it);
+    }
+    srs_info("handle consumer destroy success.");
+    
+    if (srs_consumers.empty()) {
         play_edge->on_all_client_stop();
     }
 }
@@ -1543,7 +1665,7 @@ int SrsSource::on_edge_proxy_publish(SrsMessage* msg)
 
 void SrsSource::on_edge_proxy_unpublish()
 {
-    publish_edge->on_proxy_unpublish();
+	publish_edge->on_proxy_unpublish();
 }
 
 int SrsSource::create_forwarders()
